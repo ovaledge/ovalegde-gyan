@@ -112,7 +112,8 @@ export default class Mention extends Node {
           "data-actorid": node.attrs.actorId,
           "data-url":
             node.attrs.type === MentionType.PullRequest ||
-            node.attrs.type === MentionType.Issue
+            node.attrs.type === MentionType.Issue ||
+            node.attrs.type === MentionType.JiraIssue
               ? node.attrs.href
               : `mention://${node.attrs.id}/${node.attrs.type}/${node.attrs.modelId}`,
           "data-unfurl": JSON.stringify(node.attrs.unfurl),
@@ -133,6 +134,7 @@ export default class Mention extends Node {
       case MentionType.Collection:
         return <MentionCollection {...props} />;
       case MentionType.Issue:
+      case MentionType.JiraIssue:
         return (
           <MentionIssue
             {...props}
@@ -192,6 +194,7 @@ export default class Mention extends Node {
       MentionType.Collection,
       MentionType.Document,
       MentionType.Issue,
+      MentionType.JiraIssue,
       MentionType.PullRequest,
     ];
 
@@ -209,6 +212,7 @@ export default class Mention extends Node {
 
           if (
             mentionType === MentionType.Issue ||
+            mentionType === MentionType.JiraIssue ||
             mentionType === MentionType.PullRequest
           ) {
             link = selection.node.attrs.href;
