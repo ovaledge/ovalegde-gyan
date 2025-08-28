@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ovaledge-gyan-postgres
+    environment:
+      POSTGRES_DB: outline
+      POSTGRES_USER: outline
+      POSTGRES_PASSWORD: outline
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outline -d outline"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ovaledge-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ovaledge-gyan-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ovaledge-network
+
+  # OvalEdge Gyan Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.ovaledge
+      args:
+        REPO_URL: https://github.com/ovaledge/ovalegde-gyan
+        BRANCH: oe-main
+    container_name: ovaledge-gyan-app
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgres://outline:outline@postgres:5432/outline
+      REDIS_URL: redis://redis:6379
+      
+      # Application Configuration
+      NODE_ENV: production
+      PORT: 3000
+      
+      # Security
+      SECRET_KEY: your-secret-key-here-change-this-in-production
+      UTILS_SECRET: your-utils-secret-here-change-this-in-production
+      
+      # URL Configuration
+      URL: http://localhost:3000
+      
+      # File Storage (using local storage)
+      FILE_STORAGE: local
+      FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
+      
+      # Email Configuration (optional - configure for production)
+      # SMTP_HOST: your-smtp-host
+      # SMTP_PORT: 587
+      # SMTP_USERNAME: your-email@example.com
+      # SMTP_PASSWORD: your-email-password
+      # SMTP_FROM_EMAIL: your-email@example.com
+      
+      # Optional: Sentry for error tracking
+      # SENTRY_DSN: your-sentry-dsn
+      
+    ports:
+      - "3000:3000"
+    volumes:
+      - app_data:/var/lib/outline/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ovaledge-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/_health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_data:
+    driver: local
+
+networks:
+  ovaledge-network:
+    driver: bridge

@@ -4,6 +4,7 @@ import { useDrop } from "react-dnd";
 import { useTranslation } from "react-i18next";
 import DocumentDelete from "~/scenes/DocumentDelete";
 import useStores from "~/hooks/useStores";
+import useCurrentUser from "~/hooks/useCurrentUser";
 import { trashPath } from "~/utils/routeHelpers";
 import { DragObject } from "../hooks/useDragAndDrop";
 import SidebarLink from "./SidebarLink";
@@ -11,6 +12,7 @@ import SidebarLink from "./SidebarLink";
 function TrashLink() {
   const { policies, dialogs, documents } = useStores();
   const { t } = useTranslation();
+  const user = useCurrentUser();
 
   const [{ isDocumentDropping }, dropToTrashRef] = useDrop({
     accept: "document",
@@ -32,7 +34,7 @@ function TrashLink() {
         ),
       });
     },
-    canDrop: (item) => policies.abilities(item.id).delete,
+    canDrop: (item) => user.isAdmin && policies.abilities(item.id).delete,
     collect: (monitor) => ({
       isDocumentDropping: monitor.isOver(),
     }),

@@ -105,18 +105,18 @@ export default () =>
           // pixel-perfection, provide icons in increments of 48dp.
           icons: [
             {
-              src: "/images/icon-192.png",
+              src: "/images/oe-icon.svg",
               sizes: "192x192",
               type: "image/png",
             },
             {
-              src: "/images/icon-512.png",
+              src: "/images/oe-icon.svg",
               sizes: "512x512",
               type: "image/png",
             },
             // last one duplicated for purpose: 'any maskable'
             {
-              src: "/images/icon-512.png",
+              src: "/images/oe-icon.svg",
               sizes: "512x512",
               type: "image/png",
               purpose: "any maskable",

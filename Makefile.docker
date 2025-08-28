@@ -1,0 +1,148 @@
+# Makefile for OvalEdge Gyan Docker operations
+
+# Configuration
+DOCKERFILE = Dockerfile.ovaledge
+DOCKERIGNORE = .dockerignore.ovaledge
+COMPOSE_FILE = docker-compose.ovaledge.yml
+IMAGE_NAME = ovaledge-gyan
+TAG = latest
+REPO_URL = https://github.com/ovaledge/ovalegde-gyan
+BRANCH = oe-main
+
+# Colors
+GREEN = \033[0;32m
+YELLOW = \033[1;33m
+RED = \033[0;31m
+NC = \033[0m # No Color
+
+.PHONY: help build run stop clean logs shell test
+
+# Default target
+help: ## Show this help message
+	@echo "OvalEdge Gyan Docker Operations"
+	@echo "==============================="
+	@echo ""
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+build: ## Build the Docker image
+	@echo "$(GREEN)Building OvalEdge Gyan Docker image...$(NC)"
+	@docker build -f $(DOCKERFILE) \
+		--build-arg REPO_URL=$(REPO_URL) \
+		--build-arg BRANCH=$(BRANCH) \
+		-t $(IMAGE_NAME):$(TAG) .
+	@echo "$(GREEN)Build completed: $(IMAGE_NAME):$(TAG)$(NC)"
+
+build-no-cache: ## Build the Docker image without cache
+	@echo "$(YELLOW)Building OvalEdge Gyan Docker image (no cache)...$(NC)"
+	@docker build --no-cache -f $(DOCKERFILE) \
+		--build-arg REPO_URL=$(REPO_URL) \
+		--build-arg BRANCH=$(BRANCH) \
+		-t $(IMAGE_NAME):$(TAG) .
+	@echo "$(GREEN)Build completed: $(IMAGE_NAME):$(TAG)$(NC)"
+
+run: ## Run the Docker container
+	@echo "$(GREEN)Starting OvalEdge Gyan container...$(NC)"
+	@docker run -d \
+		--name ovaledge-gyan-container \
+		-p 3000:3000 \
+		$(IMAGE_NAME):$(TAG)
+	@echo "$(GREEN)Container started. Access at http://localhost:3000$(NC)"
+
+run-interactive: ## Run the Docker container interactively
+	@echo "$(GREEN)Starting OvalEdge Gyan container (interactive)...$(NC)"
+	@docker run -it \
+		--name ovaledge-gyan-container \
+		-p 3000:3000 \
+		$(IMAGE_NAME):$(TAG)
+
+compose-up: ## Start the complete stack with docker-compose
+	@echo "$(GREEN)Starting OvalEdge Gyan stack...$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) up -d
+	@echo "$(GREEN)Stack started. Access at http://localhost:3000$(NC)"
+
+compose-down: ## Stop the complete stack
+	@echo "$(YELLOW)Stopping OvalEdge Gyan stack...$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) down
+	@echo "$(GREEN)Stack stopped$(NC)"
+
+compose-restart: ## Restart the complete stack
+	@echo "$(YELLOW)Restarting OvalEdge Gyan stack...$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) restart
+	@echo "$(GREEN)Stack restarted$(NC)"
+
+stop: ## Stop the Docker container
+	@echo "$(YELLOW)Stopping OvalEdge Gyan container...$(NC)"
+	@docker stop ovaledge-gyan-container || true
+	@echo "$(GREEN)Container stopped$(NC)"
+
+clean: ## Remove containers and images
+	@echo "$(RED)Cleaning up Docker resources...$(NC)"
+	@docker stop ovaledge-gyan-container || true
+	@docker rm ovaledge-gyan-container || true
+	@docker rmi $(IMAGE_NAME):$(TAG) || true
+	@echo "$(GREEN)Cleanup completed$(NC)"
+
+clean-all: ## Remove all containers, images, and volumes
+	@echo "$(RED)Cleaning up all Docker resources...$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) down -v --rmi all || true
+	@docker system prune -f
+	@echo "$(GREEN)Complete cleanup finished$(NC)"
+
+logs: ## Show container logs
+	@echo "$(GREEN)Showing OvalEdge Gyan logs...$(NC)"
+	@docker logs -f ovaledge-gyan-container
+
+logs-compose: ## Show stack logs
+	@echo "$(GREEN)Showing OvalEdge Gyan stack logs...$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) logs -f
+
+shell: ## Open shell in the container
+	@echo "$(GREEN)Opening shell in OvalEdge Gyan container...$(NC)"
+	@docker exec -it ovaledge-gyan-container /bin/bash
+
+shell-compose: ## Open shell in the app container
+	@echo "$(GREEN)Opening shell in OvalEdge Gyan app container...$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) exec app /bin/bash
+
+status: ## Show container status
+	@echo "$(GREEN)Docker container status:$(NC)"
+	@docker ps -a --filter name=ovaledge-gyan
+
+status-compose: ## Show stack status
+	@echo "$(GREEN)Docker Compose stack status:$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) ps
+
+test: ## Run health check
+	@echo "$(GREEN)Running health check...$(NC)"
+	@curl -f http://localhost:3000/_health || echo "$(RED)Health check failed$(NC)"
+
+test-compose: ## Run health check on compose stack
+	@echo "$(GREEN)Running health check on compose stack...$(NC)"
+	@curl -f http://localhost:3000/_health || echo "$(RED)Health check failed$(NC)"
+
+# Development targets
+dev-setup: ## Setup development environment
+	@echo "$(GREEN)Setting up development environment...$(NC)"
+	@git clone $(REPO_URL) temp-repo
+	@cd temp-repo && git checkout $(BRANCH)
+	@cp -r temp-repo/* .
+	@rm -rf temp-repo
+	@yarn install
+	@echo "$(GREEN)Development environment ready$(NC)"
+
+dev: ## Start development server
+	@echo "$(GREEN)Starting development server...$(NC)"
+	@yarn dev
+
+# Utility targets
+images: ## List Docker images
+	@echo "$(GREEN)Docker images:$(NC)"
+	@docker images | grep ovaledge
+
+volumes: ## List Docker volumes
+	@echo "$(GREEN)Docker volumes:$(NC)"
+	@docker volume ls | grep ovaledge
+
+networks: ## List Docker networks
+	@echo "$(GREEN)Docker networks:$(NC)"
+	@docker network ls | grep ovaledge

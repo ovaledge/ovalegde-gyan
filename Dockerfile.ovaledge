@@ -1,0 +1,122 @@
+# Multi-stage Docker build for OvalEdge Gyan
+# Builds from the oe-main branch of https://github.com/ovaledge/ovalegde-gyan
+
+ARG APP_PATH=/opt/outline
+ARG NODE_VERSION=20
+ARG REPO_URL=https://github.com/ovaledge/ovalegde-gyan.git
+ARG BRANCH=oe-main
+
+# Stage 1: Clone repository and install dependencies
+FROM node:${NODE_VERSION} AS deps
+
+ARG APP_PATH
+ARG REPO_URL
+ARG BRANCH
+
+WORKDIR $APP_PATH
+
+# Install git and other build dependencies
+RUN apt-get update && \
+    apt-get install -y git cmake build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
+# Clone the repository and checkout the specific branch
+RUN git clone --depth 1 --branch ${BRANCH} ${REPO_URL} . && \
+    git checkout ${BRANCH}
+
+# Copy package files
+COPY ./package.json ./yarn.lock ./
+COPY ./patches ./patches
+
+# Set Node.js memory limit for large builds
+ENV NODE_OPTIONS="--max-old-space-size=24000"
+
+# Install dependencies
+RUN yarn install --no-optional --frozen-lockfile --network-timeout 1000000 && \
+    yarn cache clean
+
+# Copy source code
+COPY . .
+
+# Build arguments for CDN URL
+ARG CDN_URL
+
+# Build the application
+RUN yarn build
+
+# Clean up dev dependencies
+RUN rm -rf node_modules
+
+# Install only production dependencies
+RUN yarn install --production=true --frozen-lockfile --network-timeout 1000000 && \
+    yarn cache clean
+
+# Stage 2: Create base image with built application
+FROM node:${NODE_VERSION} AS base
+
+ARG APP_PATH
+WORKDIR $APP_PATH
+
+# Copy built application and dependencies from deps stage
+COPY --from=deps $APP_PATH/build ./build
+COPY --from=deps $APP_PATH/server ./server
+COPY --from=deps $APP_PATH/public ./public
+COPY --from=deps $APP_PATH/.sequelizerc ./.sequelizerc
+COPY --from=deps $APP_PATH/node_modules ./node_modules
+COPY --from=deps $APP_PATH/package.json ./package.json
+
+# Stage 3: Final runtime image
+FROM node:22-slim AS runner
+
+LABEL org.opencontainers.image.source="https://github.com/ovaledge/ovalegde-gyan"
+LABEL org.opencontainers.image.description="OvalEdge Gyan - Knowledge Base Platform"
+LABEL org.opencontainers.image.vendor="OvalEdge"
+
+ARG APP_PATH
+WORKDIR $APP_PATH
+ENV NODE_ENV=production
+
+# Copy built application from base stage
+COPY --from=base $APP_PATH/build ./build
+COPY --from=base $APP_PATH/server ./server
+COPY --from=base $APP_PATH/public ./public
+COPY --from=base $APP_PATH/.sequelizerc ./.sequelizerc
+COPY --from=base $APP_PATH/node_modules ./node_modules
+COPY --from=base $APP_PATH/package.json ./package.json
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y wget && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+RUN addgroup --gid 1001 nodejs && \
+    adduser --uid 1001 --ingroup nodejs nodejs && \
+    chown -R nodejs:nodejs $APP_PATH && \
+    mkdir -p /var/lib/outline && \
+    chown -R nodejs:nodejs /var/lib/outline
+
+# Set up file storage directory
+ENV FILE_STORAGE_LOCAL_ROOT_DIR=/var/lib/outline/data
+RUN mkdir -p "$FILE_STORAGE_LOCAL_ROOT_DIR" && \
+    chown -R nodejs:nodejs "$FILE_STORAGE_LOCAL_ROOT_DIR" && \
+    chmod 1777 "$FILE_STORAGE_LOCAL_ROOT_DIR"
+
+# Create volume for data persistence
+VOLUME /var/lib/outline/data
+
+# Switch to non-root user
+USER nodejs
+
+# Health check
+HEALTHCHECK --interval=1m --timeout=10s --start-period=30s --retries=3 \
+    CMD wget -qO- "http://localhost:${PORT:-3000}/_health" | grep -q "OK" || exit 1
+
+# Expose port
+EXPOSE 3000
+
+# Set default environment variables
+ENV PORT=3000
+
+# Start the application
+CMD ["yarn", "start"]
