@@ -7,7 +7,6 @@ import { depths, s } from "@shared/styles";
 import { Avatar } from "~/components/Avatar";
 import Flex from "~/components/Flex";
 import useCurrentUser from "~/hooks/useCurrentUser";
-import useMenuContext from "~/hooks/useMenuContext";
 import useMobile from "~/hooks/useMobile";
 import usePrevious from "~/hooks/usePrevious";
 import useStores from "~/hooks/useStores";
@@ -26,13 +25,15 @@ import { useTranslation } from "react-i18next";
 const ANIMATION_MS = 250;
 
 type Props = {
-  children: React.ReactNode;
   hidden?: boolean;
+  /**  Whether the sidebar can be resized and collapsed, defaults to true. */
+  canResize?: boolean;
   className?: string;
+  children: React.ReactNode;
 };
 
 const Sidebar = React.forwardRef<HTMLDivElement, Props>(function _Sidebar(
-  { children, hidden = false, className }: Props,
+  { children, hidden = false, canResize = true, className }: Props,
   ref: React.RefObject<HTMLDivElement>
 ) {
   const [isCollapsing, setCollapsing] = React.useState(false);
@@ -41,11 +42,10 @@ const Sidebar = React.forwardRef<HTMLDivElement, Props>(function _Sidebar(
   const { ui } = useStores();
   const location = useLocation();
   const previousLocation = usePrevious(location);
-  const { isMenuOpen } = useMenuContext();
   const user = useCurrentUser({ rejectOnEmpty: false });
   const isMobile = useMobile();
   const width = ui.sidebarWidth;
-  const collapsed = ui.sidebarIsClosed && !isMenuOpen;
+  const collapsed = ui.sidebarIsClosed && canResize;
   const maxWidth = theme.sidebarMaxWidth;
   const minWidth = theme.sidebarMinWidth + 16; // padding
 
@@ -256,10 +256,12 @@ const Sidebar = React.forwardRef<HTMLDivElement, Props>(function _Sidebar(
             </SidebarButton>
           </AccountMenu>
         )}
-        <ResizeBorder
-          onMouseDown={handleMouseDown}
-          onDoubleClick={ui.sidebarIsClosed ? undefined : handleReset}
-        />
+        {canResize && (
+          <ResizeBorder
+            onMouseDown={handleMouseDown}
+            onDoubleClick={ui.sidebarIsClosed ? undefined : handleReset}
+          />
+        )}
       </Container>
       {ui.mobileSidebarVisible && <Backdrop onClick={ui.toggleMobileSidebar} />}
     </TooltipProvider>

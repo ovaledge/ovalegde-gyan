@@ -70,6 +70,7 @@ import Fix from "./decorators/Fix";
 import { DocumentHelper } from "./helpers/DocumentHelper";
 import IsHexColor from "./validators/IsHexColor";
 import Length from "./validators/Length";
+import { MaxLength } from "class-validator";
 
 export const DOCUMENT_VERSION = 2;
 
@@ -315,7 +316,7 @@ class Document extends ArchivableModel<
     msg: `editorVersion must be 255 characters or less`,
   })
   @Column
-  editorVersion: string;
+  editorVersion: string | null;
 
   /** An icon to use as the document icon. */
   @Length({
@@ -338,6 +339,11 @@ class Document extends ArchivableModel<
    */
   @Column(DataType.TEXT)
   text: string;
+
+  /** The likely language of the content, in ISO 639-1 format. */
+  @Column(DataType.STRING(2))
+  @MaxLength(2)
+  language: string;
 
   /**
    * The content of the document as JSON, this is a snapshot at the last time the state was saved.

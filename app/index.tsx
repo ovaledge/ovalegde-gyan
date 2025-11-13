@@ -53,13 +53,13 @@ if (element) {
       <HelmetProvider>
         <Provider {...stores}>
           <Analytics>
-            <Theme>
-              <Router history={history}>
-                <ErrorBoundary showTitle>
-                  <KBarProvider actions={[]} options={commandBarOptions}>
-                    <LazyPolyfill>
-                      <LazyMotion features={loadFeatures}>
-                        <ActionContextProvider>
+            <Router history={history}>
+              <Theme>
+                <ActionContextProvider>
+                  <ErrorBoundary showTitle>
+                    <KBarProvider actions={[]} options={commandBarOptions}>
+                      <LazyPolyfill>
+                        <LazyMotion features={loadFeatures}>
                           <PageScroll>
                             <PageTheme />
                             <ScrollToTop>
@@ -69,13 +69,13 @@ if (element) {
                             <Dialogs />
                             <Desktop />
                           </PageScroll>
-                        </ActionContextProvider>
-                      </LazyMotion>
-                    </LazyPolyfill>
-                  </KBarProvider>
-                </ErrorBoundary>
-              </Router>
-            </Theme>
+                        </LazyMotion>
+                      </LazyPolyfill>
+                    </KBarProvider>
+                  </ErrorBoundary>
+                </ActionContextProvider>
+              </Theme>
+            </Router>
           </Analytics>
         </Provider>
       </HelmetProvider>

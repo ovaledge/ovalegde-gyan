@@ -23,6 +23,7 @@ import CommentForm from "./CommentForm";
 import CommentSortMenu from "./CommentSortMenu";
 import CommentThread from "./CommentThread";
 import Sidebar from "./SidebarLayout";
+import useMobile from "~/hooks/useMobile";
 import { ArrowDownIcon } from "~/components/Icons/ArrowIcon";
 
 function Comments() {
@@ -34,6 +35,8 @@ function Comments() {
   const document = documents.get(match.params.documentSlug);
   const focusedComment = useFocusedComment();
   const can = usePolicy(document);
+  const isMobile = useMobile();
+
   const query = useQuery();
   const [viewingResolved, setViewingResolved] = useState(
     query.get("resolved") !== null || focusedComment?.isResolved || false
@@ -123,15 +126,73 @@ function Comments() {
     prevThreadCount.current = threads.length;
   }, [sortOption.type, threads.length, viewingResolved]);
 
-  if (!document || !isEditorInitialized) {
-    return null;
-  }
+  const content =
+    !document || !isEditorInitialized ? null : (
+      <>
+        <Scrollable
+          id="comments"
+          bottomShadow={!focusedComment}
+          hiddenScrollbars
+          topShadow
+          ref={scrollableRef}
+          onScroll={handleScroll}
+        >
+          <Wrapper $hasComments={hasComments}>
+            {hasComments ? (
+              threads.map((thread) => (
+                <CommentThread
+                  key={thread.id}
+                  comment={thread}
+                  document={document}
+                  recessed={!!focusedComment && focusedComment.id !== thread.id}
+                  focused={focusedComment?.id === thread.id}
+                />
+              ))
+            ) : (
+              <NoComments align="center" justify="center" auto>
+                <PositionedEmpty>
+                  {viewingResolved
+                    ? t("No resolved comments")
+                    : t("No comments yet")}
+                </PositionedEmpty>
+              </NoComments>
+            )}
+            {showJumpToRecentBtn && (
+              <Fade>
+                <JumpToRecent onClick={scrollToBottom}>
+                  <Flex align="center">
+                    {t("New comments")}&nbsp;
+                    <ArrowDownIcon size={20} />
+                  </Flex>
+                </JumpToRecent>
+              </Fade>
+            )}
+          </Wrapper>
+        </Scrollable>
+        <AnimatePresence initial={false}>
+          {(!focusedComment || isMobile) && can.comment && !viewingResolved && (
+            <NewCommentForm
+              draft={draft}
+              onSaveDraft={onSaveDraft}
+              documentId={document.id}
+              placeholder={`${t("Add a comment")}…`}
+              autoFocus={false}
+              dir={document.dir}
+              animatePresence
+              standalone
+            />
+          )}
+        </AnimatePresence>
+      </>
+    );
 
   return (
     <Sidebar
       title={
-        <Flex align="center" justify="space-between" auto>
-          <span>{t("Comments")}</span>
+        <Flex align="center" justify="space-between" gap={8} auto>
+          <div style={isMobile ? { padding: "0 8px" } : undefined}>
+            {t("Comments")}
+          </div>
           <CommentSortMenu
             viewingResolved={viewingResolved}
             onChange={(val) => {
@@ -143,60 +204,7 @@ function Comments() {
       onClose={() => ui.set({ commentsExpanded: false })}
       scrollable={false}
     >
-      <Scrollable
-        id="comments"
-        bottomShadow={!focusedComment}
-        hiddenScrollbars
-        topShadow
-        ref={scrollableRef}
-        onScroll={handleScroll}
-      >
-        <Wrapper $hasComments={hasComments}>
-          {hasComments ? (
-            threads.map((thread) => (
-              <CommentThread
-                key={thread.id}
-                comment={thread}
-                document={document}
-                recessed={!!focusedComment && focusedComment.id !== thread.id}
-                focused={focusedComment?.id === thread.id}
-              />
-            ))
-          ) : (
-            <NoComments align="center" justify="center" auto>
-              <PositionedEmpty>
-                {viewingResolved
-                  ? t("No resolved comments")
-                  : t("No comments yet")}
-              </PositionedEmpty>
-            </NoComments>
-          )}
-          {showJumpToRecentBtn && (
-            <Fade>
-              <JumpToRecent onClick={scrollToBottom}>
-                <Flex align="center">
-                  {t("New comments")}&nbsp;
-                  <ArrowDownIcon size={20} />
-                </Flex>
-              </JumpToRecent>
-            </Fade>
-          )}
-        </Wrapper>
-      </Scrollable>
-      <AnimatePresence initial={false}>
-        {!focusedComment && can.comment && !viewingResolved && (
-          <NewCommentForm
-            draft={draft}
-            onSaveDraft={onSaveDraft}
-            documentId={document.id}
-            placeholder={`${t("Add a comment")}…`}
-            autoFocus={false}
-            dir={document.dir}
-            animatePresence
-            standalone
-          />
-        )}
-      </AnimatePresence>
+      {content}
     </Sidebar>
   );
 }
